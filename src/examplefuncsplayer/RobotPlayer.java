@@ -125,9 +125,15 @@ public strictfp class RobotPlayer {
         // Give orders to each robot
         for (int i = 0; i < myRobots.length; i++) {
             int robotId = myRobots[i].getID();
+
+            // Check if the robot still exists
+            if (!checkIdExists(rc, robotId)) {
+                continue;
+            }
+
             MapLocation loc = rc.getLocation(robotId);
             System.out.println("Controlling robot " + robotId + " at location " + loc + " and health " + rc.getHealth(robotId));
-            
+
             if (rc.canMine(robotId)) {
                 // Let's try to mine
                 rc.mine(robotId);
@@ -146,15 +152,35 @@ public strictfp class RobotPlayer {
                     }
                 }
 
+                // Check if the robot still exists
+                if (!checkIdExists(rc, robotId)) {
+                    continue;
+                }
+
                 // Move a random direction
                 Direction dir = directions[rng.nextInt(directions.length)];
                 System.out.println("Trying to move " + dir);
 
                 // Let's try to move. If the robot already moved to attack it cannot move. 
                 if (rc.canMove(robotId, dir)) {
+                    System.out.println("I can move!");
                     rc.move(robotId, dir);
+                } else {
+                    System.out.println("I can't move :(");
                 }
             }
         }
+    }
+
+    /**
+     * Check if a robot id is exists
+     */
+    static boolean checkIdExists(RobotController rc, int id) {
+        try {
+            rc.getTeam(id);
+        } catch (Exception e) {
+            return false;
+        }
+        return true;
     }
 }
