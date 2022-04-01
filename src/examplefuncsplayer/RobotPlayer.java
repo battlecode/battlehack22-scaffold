@@ -43,16 +43,18 @@ public strictfp class RobotPlayer {
      *
      * @param rc  The RobotController object. You use it to perform actions from this robot, and to get
      *            information on its current status. Essentially your portal to interacting with the world.
+     * @throws GameActionException if invalid action is done
      **/
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
+        if (rc.getTeam() == Team.A) rng.nextInt(1);
 
         // Hello world! Standard output is very useful for debugging.
         // Everything you say here will be directly viewable in your terminal when you run a match!
-        System.out.println("I'm a " + rc.getType() + " and I just got created! I have health " + rc.getHealth());
+        System.out.println("I'm a " + rc.getType() + " and I just got created!");
 
         // You can also use indicators to save debug notes in replays.
-        rc.setIndicatorString("Hello world!");
+        // rc.setIndicatorString("Hello world!");
 
         while (true) {
             // This code runs during the entire lifespan of the robot, which is why it is in an infinite
@@ -60,7 +62,7 @@ public strictfp class RobotPlayer {
             // loop, we call Clock.yield(), signifying that we've done everything we want to do.
 
             turnCount += 1;  // We have now been alive for one more turn!
-            System.out.println("Age: " + turnCount + "; Location: " + rc.getLocation());
+            System.out.println("Age: " + turnCount);
 
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode.
             try {
@@ -69,13 +71,8 @@ public strictfp class RobotPlayer {
                 // use different strategies on different robots. If you wish, you are free to rewrite
                 // this into a different control structure!
                 switch (rc.getType()) {
-                    case ARCHON:     runArchon(rc);  break;
-                    case MINER:      runMiner(rc);   break;
-                    case SOLDIER:    runSoldier(rc); break;
-                    case LABORATORY: // Examplefuncsplayer doesn't use any of these robot types below.
-                    case WATCHTOWER: // You might want to give them a try!
-                    case BUILDER:
-                    case SAGE:       break;
+                    case ROBOT:     runRobot(rc);  break;
+                    case CONTROLLER: runController(rc); break;
                 }
             } catch (GameActionException e) {
                 // Oh no! It looks like we did something illegal in the Battlecode world. You should
@@ -102,77 +99,62 @@ public strictfp class RobotPlayer {
     }
 
     /**
-     * Run a single turn for an Archon.
+     * Run a single turn for a Robot.
      * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
      */
-    static void runArchon(RobotController rc) throws GameActionException {
-        // Pick a direction to build in.
-        Direction dir = directions[rng.nextInt(directions.length)];
-        if (rng.nextBoolean()) {
-            // Let's try to build a miner.
-            rc.setIndicatorString("Trying to build a miner");
-            if (rc.canBuildRobot(RobotType.MINER, dir)) {
-                rc.buildRobot(RobotType.MINER, dir);
-            }
-        } else {
-            // Let's try to build a soldier.
-            rc.setIndicatorString("Trying to build a soldier");
-            if (rc.canBuildRobot(RobotType.SOLDIER, dir)) {
-                rc.buildRobot(RobotType.SOLDIER, dir);
-            }
-        }
+    static void runRobot(RobotController rc) throws GameActionException {
+        System.out.println("Pls no!");
     }
 
-    /**
-     * Run a single turn for a Miner.
-     * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
-     */
-    static void runMiner(RobotController rc) throws GameActionException {
-        // Try to mine on squares around us.
-        MapLocation me = rc.getLocation();
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                MapLocation mineLocation = new MapLocation(me.x + dx, me.y + dy);
-                // Notice that the Miner's action cooldown is very low.
-                // You can mine multiple times per turn!
-                while (rc.canMineGold(mineLocation)) {
-                    rc.mineGold(mineLocation);
-                }
-                while (rc.canMineLead(mineLocation)) {
-                    rc.mineLead(mineLocation);
-                }
+    static void runController(RobotController rc) throws GameActionException {
+        System.out.println("I'm an all powerful controller. (I think) " + rc.getType() + " I have " + rc.getRobotCount() + " robot(s) under my control.");
+        System.out.println("I have " + rc.getTeamUraniumAmount(rc.getTeam()) + " uranium!");
+
+        // Try to build a robot with all of our resources, if possible
+        if (rc.getTeamUraniumAmount(rc.getTeam()) > 0) {
+            int health = rc.getTeamUraniumAmount(rc.getTeam());
+            if (rc.canBuildRobot(health)) {
+                rc.buildRobot(health);
+                System.out.println("Built new robot of health " + health);
             }
         }
 
-        // Also try to move randomly.
-        Direction dir = directions[rng.nextInt(directions.length)];
-        if (rc.canMove(dir)) {
-            rc.move(dir);
-            System.out.println("I moved!");
-        }
-    }
+        // Get all your robots
+        RobotInfo[] myRobots = rc.senseNearbyRobots(new MapLocation(0, 0), -1, rc.getTeam());
 
-    /**
-     * Run a single turn for a Soldier.
-     * This code is wrapped inside the infinite loop in run(), so it is called once per turn.
-     */
-    static void runSoldier(RobotController rc) throws GameActionException {
-        // Try to attack someone
-        int radius = rc.getType().actionRadiusSquared;
-        Team opponent = rc.getTeam().opponent();
-        RobotInfo[] enemies = rc.senseNearbyRobots(radius, opponent);
-        if (enemies.length > 0) {
-            MapLocation toAttack = enemies[0].location;
-            if (rc.canAttack(toAttack)) {
-                rc.attack(toAttack);
+        // Give orders to each robot
+        for (int i = 0; i < myRobots.length; i++) {
+            int robotId = myRobots[i].getID();
+            MapLocation loc = rc.getLocation(robotId);
+            System.out.println("Controlling robot " + robotId + " at location " + loc + " and health " + rc.getHealth(robotId));
+            
+            if (rc.canMine(robotId)) {
+                // Let's try to mine
+                rc.mine(robotId);
+                System.out.println("Mining, square amount: " + rc.senseUranium(loc) + ", Team Amount: " + rc.getTeamUraniumAmount(rc.getTeam()));
+            } else {
+                // Check if an enemy robot is nearby; if so, run into it
+                for (Direction dir : directions) {
+                    MapLocation adjacent = rc.adjacentLocation(robotId, dir);
+                    if (!rc.onTheMap(adjacent)) {
+                        continue;
+                    }
+                    RobotInfo enemyRobot = rc.senseRobotAtLocation(adjacent);
+                    if (enemyRobot != null && enemyRobot.getTeam() != rc.getTeam() && rc.canMove(robotId, dir)) {
+                        rc.move(robotId, dir);
+                        break;
+                    }
+                }
+
+                // Move a random direction
+                Direction dir = directions[rng.nextInt(directions.length)];
+                System.out.println("Trying to move " + dir);
+
+                // Let's try to move. If the robot already moved to attack it cannot move. 
+                if (rc.canMove(robotId, dir)) {
+                    rc.move(robotId, dir);
+                }
             }
-        }
-
-        // Also try to move randomly.
-        Direction dir = directions[rng.nextInt(directions.length)];
-        if (rc.canMove(dir)) {
-            rc.move(dir);
-            System.out.println("I moved!");
         }
     }
 }
